@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Country {
+  id         String       @id @default(uuid())
+  name       String       @unique
+  University University[]
+}
+
+model University {
+  id          String       @id @default(uuid())
+  name        String
+  domains     String[]
+  webPages    String[]     @map("web_pages")
+  countryId   String
+  country     Country      @relation(fields: [countryId], references: [id])
+  iniciatives Initiative[] @relation("universities_initiatives")
+
+  @@index([domains], name: "domains")
+  @@map("universities")
+}
+
+model Initiative {
+  id           String             @id @default(uuid())
+  name         String
+  slug         String             @unique
+  description  Json
+  universities University[]       @relation("universities_initiatives")
+  users        UserOnInitiative[]
+  tags         String[]
+
+  @@index([slug], name: "initiatives_slug_key")
+  @@map("iniciatives")
+}
+
+model UserOnInitiative {
+  id           String     @id @default(uuid())
+  user         User       @relation("users_in_initiatives", fields: [userId], references: [id])
+  userId       Int
+  initiative   Initiative @relation(fields: [initiativeId], references: [id])
+  initiativeId String
+  canAddUsers  Boolean    @default(false)
+  addedById    Int
+  addedBy      User       @relation("users_added_to_iniatives", fields: [addedById], references: [id])
+  addedAt      DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("user_on_initiative")
+}
+
+// NextAuth stuff
+
+model Account {
+  id                       Int     @id @default(autoincrement())
+  userId                   Int     @map("user_id")
+  type                     String
+  provider                 String
+  providerAccountId        String  @map("provider_account_id")
+  refresh_token            String?
+  refresh_token_expires_in Int?
+  access_token             String?
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String?
+  session_state            String?
+  oauth_token_secret       String?
+  oauth_token              String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  sessionToken String   @unique @map("session_token")
+  userId       Int      @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id                    Int                @id @default(autoincrement())
+  name                  String?
+  isAdmin               Boolean            @default(false) @map("is_admin")
+  email                 String?            @unique
+  emailVerified         DateTime?          @map("email_verified")
+  image                 String?
+  createdAt             DateTime           @default(now()) @map(name: "created_at")
+  updatedAt             DateTime           @updatedAt @map(name: "updated_at")
+  accounts              Account[]
+  sessions              Session[]
+  initiatives           UserOnInitiative[] @relation("users_in_initiatives")
+  usersAddedToIniatives UserOnInitiative[] @relation("users_added_to_iniatives")
+
+  @@map(name: "users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
